@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Interactive 3D AI Avatar</title>
+  <style>
+    body {
+      background: #222;
+      color: #eee;
+      font-family: 'Segoe UI', Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin: 0;
+      height: 100vh;
+    }
+    #avatar-container {
+      width: 400px;
+      height: 400px;
+      border-radius: 15px;
+      background: #111;
+      margin-top: 30px;
+      box-shadow: 0 2px 10px #0006;
+      overflow: hidden;
+    }
+    #chat-box {
+      margin-top: 20px;
+      width: 400px;
+      background: #181818;
+      border-radius: 10px;
+      padding: 16px;
+      box-shadow: 0 1px 4px #0004;
+    }
+    #messages {
+      max-height: 160px;
+      overflow-y: auto;
+      margin-bottom: 10px;
+      font-size: 1em;
+    }
+    .user { color: #6cc6ff; }
+    .ai { color: #ffce73; }
+    #input-row {
+      display: flex;
+    }
+    #user-input {
+      flex: 1;
+      font-size: 1em;
+      padding: 8px;
+      border: none;
+      border-radius: 5px;
+      margin-right: 8px;
+    }
+    #send-btn {
+      padding: 8px 16px;
+      border: none;
+      background: #6cc6ff;
+      color: #222;
+      font-weight: bold;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    #send-btn:hover {
+      background: #3eaee0;
+    }
+  </style>
+</head>
+<body>
+  <h2>Interactive 3D AI Avatar</h2>
+  <div id="avatar-container"></div>
+  <div id="chat-box">
+    <div id="messages"></div>
+    <div id="input-row">
+      <input type="text" id="user-input" placeholder="Say something..." autocomplete="off" />
+      <button id="send-btn">Send</button>
+    </div>
+  </div>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+  <script>
+    // Basic 3D avatar (Head with animated mouth and eyes)
+    let scene = new THREE.Scene();
+    let camera = new THREE.PerspectiveCamera(50, 1, 0.1, 1000);
+    let renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(400, 400);
+    document.getElementById('avatar-container').appendChild(renderer.domElement);
+
+    camera.position.z = 3;
+
+    // Head
+    let headGeometry = new THREE.SphereGeometry(1, 32, 32);
+    let headMaterial = new THREE.MeshStandardMaterial({ color: 0xeee6cc });
+    let head = new THREE.Mesh(headGeometry, headMaterial);
+    scene.add(head);
+
+    // Eyes
+    let eyeGeometry = new THREE.SphereGeometry(0.13, 16, 16);
+    let eyeMaterial = new THREE.MeshStandardMaterial({ color: 0x222222 });
+    let eyeLeft = new THREE.Mesh(eyeGeometry, eyeMaterial);
+    let eyeRight = new THREE.Mesh(eyeGeometry, eyeMaterial);
+    eyeLeft.position.set(-0.35, 0.28, 0.9);
+    eyeRight.position.set(0.35, 0.28, 0.9);
+    head.add(eyeLeft);
+    head.add(eyeRight);
+
+    // Mouth (Arc shape)
+    let mouthShape = new THREE.Shape();
+    mouthShape.absarc(0, 0, 0.35, Math.PI * 0.15, Math.PI * 0.85, false);
+    let mouthGeometry = new THREE.BufferGeometry().setFromPoints(mouthShape.getPoints(20));
+    let mouthMaterial = new THREE.LineBasicMaterial({ color: 0x222222, linewidth: 6 });
+    let mouth = new THREE.Line(mouthGeometry, mouthMaterial);
+    mouth.position.set(0, -0.35, 0.92);
+    head.add(mouth);
+
+    // Lighting
+    scene.add(new THREE.AmbientLight(0xffffff, 0.8));
+    let directional = new THREE.DirectionalLight(0xffffff, 0.7);
+    directional.position.set(2, 4, 5);
+    scene.add(directional);
+
+    // Personality state
+    let mood = 'neutral'; // could be 'happy', 'sad', 'neutral'
+
+    function setMood(newMood) {
+      mood = newMood;
+      // Update mouth shape
+      let points;
+      if (mood === 'happy') {
+        points = new THREE.Shape().absarc(0, 0, 0.35, Math.PI * 0.1, Math.PI * 0.9, false).getPoints(20);
+      } else if (mood === 'sad') {
+        points = new THREE.Shape().absarc(0, 0.15, 0.35, Math.PI * 1.1, Math.PI * 1.9, false).getPoints(20);
+      } else {
+        points = new THREE.Shape().absarc(0, 0, 0.35, Math.PI * 0.15, Math.PI * 0.85, false).getPoints(20);
+      }
+      mouth.geometry.setFromPoints(points);
+    }
+
+    // Animate avatar (simple rotation)
+    function animate() {
+      requestAnimationFrame(animate);
+      head.rotation.y += 0.004;
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    // Chat logic
+    const userInput = document.getElementById('user-input');
+    const sendBtn = document.getElementById('send-btn');
+    const messages = document.getElementById('messages');
+
+    function appendMessage(text, sender) {
+      const div = document.createElement('div');
+      div.className = sender;
+      div.textContent = (sender === 'user' ? \"You: \" : \"AI: \") + text;
+      messages.appendChild(div);
+      messages.scrollTop = messages.scrollHeight;
+    }
+
+    // Mock AI personality replies
+    function aiReply(userText) {
+      userText = userText.toLowerCase();
+      // Simple personality: happy if greeted, sad if insulted, else neutral
+      if (userText.includes('hello') || userText.includes('hi')) {
+        setMood('happy');
+        return \"Hello! 😊 How can I help you today?\";
+      }
+      if (userText.includes('sad') || userText.includes('bad')) {
+        setMood('sad');
+        return \"Oh, I'm sorry to hear that. Want to talk about it?\";
+      }
+      if (userText.includes('joke')) {
+        setMood('happy');
+        return \"Why did the computer go to the doctor? Because it had a virus!\";
+      }
+      if (userText.includes('thank')) {
+        setMood('happy');
+        return \"You're welcome!\";
+      }
+      if (userText.includes('angry') || userText.includes('hate')) {
+        setMood('sad');
+        return \"I'll try to be better. Let me know how I can help.\";
+      }
+      setMood('neutral');
+      return \"I'm your friendly AI avatar. Ask me anything!\";
+    }
+
+    function handleUserInput() {
+      const text = userInput.value.trim();
+      if (text.length === 0) return;
+      appendMessage(text, 'user');
+      userInput.value = '';
+      setTimeout(() => {
+        const reply = aiReply(text);
+        appendMessage(reply, 'ai');
+      }, 500);
+    }
+
+    sendBtn.addEventListener('click', handleUserInput);
+    userInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter') handleUserInput();
+    });
+
+    // Initial AI greeting
+    appendMessage(\"Hello! I'm your 3D avatar AI. Say hi to chat!\", 'ai');
+    setMood('happy');
+  </script>
+</body>
+</html>
